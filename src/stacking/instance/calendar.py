@@ -61,6 +61,7 @@ class Cursor(object):
         self.index = -1  # index of the current instant
         self.pending_releases = set()  # items which MUST be released in the current instant
         self.pending_deliveries = set()  # items which MUST be delivered in the current instant
+        self.is_finished = False  # True when the cursor has reached the end of the calendar
         self.advance()  # move to first instant
 
     def copy(self):
@@ -70,6 +71,7 @@ class Cursor(object):
         clone.index = self.index
         clone.pending_releases = set(self.pending_releases)
         clone.pending_deliveries = set(self.pending_deliveries)
+        clone.is_finished = self.is_finished
         return clone
 
     @property
@@ -80,36 +82,25 @@ class Cursor(object):
     def time(self):
         return self.calendar[self.index].time
 
-    def is_finished(self):
-        return (
-            self.index >= len(self.calendar) - 1 and
-            len(self.pending_releases) == 0 and
-            len(self.pending_deliveries) == 0
-        )
-
-    def can_advance(self):
-        return (
-            self.index < len(self.calendar) - 1 and
-            len(self.pending_releases) == 0 and
-            len(self.pending_deliveries) == 0
-        )
-
     def advance(self):
         if len(self.pending_releases) > 0:
             raise Exception("pending releases: {}".format(self.pending_releases))
         if len(self.pending_deliveries) > 0:
             raise Exception("pending deliveries: {}".format(self.pending_deliveries))
         self.index += 1
-        instant = self.calendar[self.index]
-        self.pending_releases = set(instant.releases)
-        self.pending_deliveries = set(instant.deliveries)
+        if self.index >= len(self.calendar):
+            self.is_finished = True
+        else:
+            instant = self.calendar[self.index]
+            self.pending_releases = set(instant.releases)
+            self.pending_deliveries = set(instant.deliveries)
 
     def mark_delivered(self, item):
         self.pending_deliveries.remove(item)
-        if self.can_advance():
+        if len(self.pending_deliveries) == 0 and len(self.pending_releases) == 0:
             self.advance()
 
     def mark_released(self, item):
         self.pending_releases.remove(item)
-        if self.can_advance():
+        if len(self.pending_deliveries) == 0 and len(self.pending_releases) == 0:
             self.advance()

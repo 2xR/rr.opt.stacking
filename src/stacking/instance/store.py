@@ -4,6 +4,7 @@ from __future__ import print_function
 from __future__ import unicode_literals
 from future.builtins import object, map, range
 
+from stacking import utils
 from .stack import Stack, RELEASE, DELIVERY
 
 
@@ -21,6 +22,7 @@ class Store(object):
             self.stacks.append(Stack(i, max_height=max_height))
         self.stacks.append(DELIVERY)
         self.loc_map = {}  # item location map :: {item: stack_index}
+        self.move_callbacks = []  # :: [callable(store, item, source, target)]
 
     def __repr__(self):
         return "<{} \n\t{}\n@{:x}>".format(
@@ -29,11 +31,15 @@ class Store(object):
             id(self),
         )
 
-    def copy(self):
+    def copy(self, clear_move_callbacks=True):
         cls = type(self)
         clone = cls.__new__(cls)
         clone.stacks = [stack.copy() for stack in self.stacks]
         clone.loc_map = dict(self.loc_map)
+        if clear_move_callbacks:
+            clone.move_callbacks = []
+        else:
+            clone.move_callbacks = list(self.move_callbacks)
         return clone
 
     @property
@@ -46,22 +52,10 @@ class Store(object):
             yield stacks[i]
 
     def nonequivalent_stacks(self):
-        nonequivalent = []
-        for stack in self.inner_stacks():
-            if not any(stack.equivalent_to(s) for s in nonequivalent):
-                nonequivalent.append(stack)
-        return nonequivalent
+        return utils.nonequivalent_stacks(self.inner_stacks())
 
     def stack_groups(self):
-        groups = []
-        for stack in self.inner_stacks():
-            for group in groups:
-                if stack.equivalent_to(group[0]):
-                    group.append(stack)
-                    break
-            else:
-                groups.append([stack])
-        return groups
+        return utils.stack_groups(self.inner_stacks())
 
     def location(self, item):
         """Retrieve the stack where an item currently is located.
@@ -85,7 +79,10 @@ class Store(object):
 
         Returns:
             Stack: the item's previous location."""
+        if isinstance(target, int):
+            target = self.stacks[target]
         source = self.location(item)
+        assert source is not target
         assert not target.full
         if source is not RELEASE:
             assert item is source.top
@@ -93,32 +90,18 @@ class Store(object):
         if target is not DELIVERY:
             target.push(item)
         self.loc_map[item] = target.id
+        for callback in self.move_callbacks:
+            callback(self, item, source, target)
         return source
 
+    def register_move_callback(self, fnc):
+        """Register `fnc` to be executed when this `store.move()` is called.
 
-class RecordingStore(Store):
-    """A Store subclass which keeps a record of all moves it makes and counts relocations."""
-    def __init__(self, *args, **kwargs):
-        Store.__init__(self, *args, **kwargs)
-        self.moves = []
-        self.relocations = 0
+        The callback function is given four arguments: the store, item, source stack, and target
+        stack. Its return value is ignored.
+        """
+        self.move_callbacks.append(fnc)
+        return fnc
 
-    def copy(self):
-        clone = Store.copy(self)
-        clone.moves = list(self.moves)
-        clone.relocations = self.relocations
-        return clone
-
-    def move(self, item, target):
-        source = Store.move(self, item, target)
-        self.moves.append("i{}: s{} -> s{}".format(
-            item.id,
-            "R" if source is RELEASE else source.id,
-            "D" if target is DELIVERY else target.id,
-        ))
-        if source is not RELEASE and target is not DELIVERY:
-            self.relocations += 1
-        return source
-
-
-Store.Recording = RecordingStore
+    def clear_move_callbacks(self):
+        del self.move_callbacks[:]

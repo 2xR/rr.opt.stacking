@@ -5,27 +5,38 @@ from __future__ import unicode_literals
 
 from rr.opt.mcts import basic as mcts
 
+from stacking import utils
 from stacking.instance import RELEASE, DELIVERY
+from stacking.solution import Solution
 
+from . import simulation
 from . import heuristics
+
+
+INF = float("inf")
 
 
 class TreeNode(mcts.TreeNode):
     @classmethod
     def root(cls, instance):
         root = cls()
-        root.unreleased_items = len(instance.items)
+        root.store = instance.store.copy(clear_move_callbacks=True)
+        root.store.register_move_callback(root.on_move)
         root.cursor = instance.calendar.cursor()
-        root.store = instance.store.copy()
-        root.actions = []
-        root.flush_stacks(root.store.inner_stacks())
+        root.solution = Solution()
+        root.unreleased_items = sum(len(instant.releases) for instant in instance.calendar)
+        # Process immediate deliveries.
+        for stack in root.store.inner_stacks():
+            utils.flush_stack(root.store, stack, root.cursor.time)
         return root
 
     def copy(self):
         clone = mcts.TreeNode.copy(self)
+        clone.store = self.store.copy(clear_move_callbacks=True)
+        clone.store.register_move_callback(self.on_move)
         clone.cursor = self.cursor.copy()
-        clone.store = self.store.copy()
-        clone.actions = list(self.actions)
+        clone.solution = self.solution.copy()
+        clone.unreleased_items = self.unreleased_items
         return clone
 
     def branches(self):
@@ -37,147 +48,70 @@ class TreeNode(mcts.TreeNode):
         if self.unreleased_items == 0 and store.inversions == 0:
             return ()
 
+        # We only need to concern ourselves with relocations and releases (note that
+        # remarshalling is not considered), because item deliveries are automatically handled by
+        # our 'on_move()' handler. When we reach this method, we are guaranteed to not have *any*
+        # deliverable item at the top of *any* stack.
+        branches = []
         stack_groups = store.stack_groups()
-        actions = []
-        # Deliveries
-        for item in cursor.pending_deliveries:
-            src = store.item_location[item]
-            if src.top is item:
-                actions.append((item, DELIVERY.id))
-        # Relocations
-        if self.solver.do_remarshal:
-            self._remarshalling(stack_groups, actions)
-        elif len(cursor.pending_deliveries) > 0:
-            self._reshuffling(stack_groups, actions)
-        # Releases
+
+        # To generate all valid reshuffling branches **without duplicates**, we first create a set
+        # of non-equivalent source stacks (i.e. stacks containing deliverable items). Then, for
+        # each such stack, we compute the list of valid target stacks and add those movements to
+        # the branch list.
+        all_sources = {store.location(item) for item in cursor.pending_deliveries}
+        nonequiv_sources = utils.nonequivalent_stacks(all_sources)
+        for source in nonequiv_sources:
+            item = source.top
+            target_ids = [target.id for target in utils.target_stacks(source, stack_groups)]
+            branches.extend((item, target_id) for target_id in target_ids)
+
+        # Item releases are much easier to generate: one branch per (item, stack_group) pair.
+        target_ids = [target.id for target in utils.target_stacks(RELEASE, stack_groups)]
         for item in cursor.pending_releases:
-            actions.extend((item, group[0].id) for group in stack_groups)
-        return actions
+            branches.extend((item, target_id) for target_id in target_ids)
 
-    def _remarshalling(self, stack_groups, actions):
-        for src_group in stack_groups:
-            src_items = src_group[0].items
-            if len(src_items) > 0:
-                item = src_items[-1]
-                for tgt_group in stack_groups:
-                    if src_group is not tgt_group:
-                        actions.append((item, tgt_group[0].id))
-                    elif len(tgt_group) > 1:
-                        actions.append((item, tgt_group[1].id))
-
-    def _reshuffling(self, stack_groups, actions):
-        deliveries_unaccounted_for = len(self.cursor.pending_deliveries)
-        delivery_stacks = []
-        current_time = self.cursor.timestamp
-        for stack in self.store.stacks:
-            if stack.due == current_time:
-                if not any(stack.equivalent_to(s) for s in delivery_stacks):
-                    delivery_stacks.append(stack)
-                deliveries_unaccounted_for -= sum(1 for i in stack.items if i.due == current_time)
-                if deliveries_unaccounted_for == 0:
-                    break
-        assert deliveries_unaccounted_for == 0
-        for src in delivery_stacks:
-            item = src.items[-1]
-            assert item.due > current_time
-            for tgt_group in stack_groups:
-                tgt = tgt_group[0]
-                if src is not tgt:
-                    actions.append((item, tgt.id))
-                elif len(tgt_group) > 1:
-                    actions.append((item, tgt_group[1].id))
+        return branches
 
     def apply(self, branch):
-        item, tgt_id = branch
-        cursor = self.cursor
-        index = cursor.index
-        src = self.move_item(item, tgt_id)
-        if src is not RELEASE:
-            self.flush_stacks([src])
-        while cursor.index > index and not cursor.is_finished():
-            index = cursor.index
-            self.flush_stacks(self.store.stacks)
+        item, target_id = branch
+        self.store.move(item, target_id)
 
     def simulate(self):
-        leaf = self.copy()
-        leaf.semi_greedy_complete()
-        return leaf
+        solution = simulation.run(
+            store=self.store,
+            cursor=self.cursor,
+            solution=self.solution,
+            heuristic=heuristics.max_flexibility,
+        )
+        return mcts.Solution(value=solution.relocations, data=solution)
 
     def bound(self):
-        return self.relocations + self.store.inversions
+        return self.solution.relocations + self.store.inversions
 
-    # --------------------------------------------------------------------------
-    def flush_stacks(self, stacks):
-        """"Deliver items at the top of any stack in 'stacks' whose delivery is in the current
-        instant (in the cursor object)."""
-        deliveries = self.cursor.pending_deliveries
-        if len(deliveries) > 0:
+    def on_move(self, store, item, source, target):
+        """This method is called automatically by the store object whenever a move() is made."""
+        assert store is self.store
+        self.solution.record_move(store, item, source, target)
+        cursor = self.cursor
+        index = cursor.index  # store initial cursor index (see comment below)
+        if source is RELEASE:
+            cursor.mark_released(item)
+            self.unreleased_items -= 1
+        if target is DELIVERY:
+            cursor.mark_delivered(item)
+
+        # Flush the source stack if this was a relocation.
+        # IMPORTANT: this *must* come after updates to the cursor object!
+        if source is not RELEASE and target is not DELIVERY:
+            utils.flush_stack(store, source, cursor.time)
+
+        # If the cursor index advanced and there are deliveries in the current instant, flush all
+        # stacks containing deliverable items. Repeat this until either the cursor stops advancing
+        # or it advances into an instant without deliveries.
+        while cursor.index > index and len(cursor.pending_deliveries) > 0:
+            index = cursor.index  # record new cursor index to detect if it advances again
+            time = cursor.time
+            stacks = {store.location(i) for i in cursor.pending_deliveries}
             for stack in stacks:
-                while len(stack.items) > 0:
-                    item = stack.items[-1]
-                    if item not in deliveries:
-                        break
-                    self.move_item(item, DELIVERY.id)
-
-    def move_item(self, item, tgt_id):
-        store = self.store
-        tgt = store.location_map[tgt_id]
-        src = store.move(item, tgt)
-        cursor = self.cursor
-        timestamp = cursor.timestamp  # retrieve timestamp before cursor is automatically advanced
-        if src is RELEASE:
-            cursor.released_item(item)
-        elif tgt is DELIVERY:
-            cursor.delivered_item(item)
-        self.actions.append((timestamp, item.id, src.id, tgt_id))
-        return src
-
-    def deliver_item(self, item):
-        store = self.store
-        src = store.item_location[item]
-        top = src.items[-1]
-        if top is item:
-            self.move_item(item, DELIVERY.id)
-            return
-        rng = self.solver.rng
-        while top is not item:
-            assert top.due > item.due
-            options = self.placement_choices(avoid=src)
-            tgt = FO(top, options, rng) if len(options) > 1 else options[0]
-            self.move_item(top, tgt.id)
-            top = src.items[-1]
-        self.move_item(item, DELIVERY.id)
-
-    def semi_greedy_complete(self, cut=INF):
-        store = self.store
-        rng = self.solver.rng
-        cursor = self.cursor
-        release_sort_key = lambda i: (-i.due, i.id)
-        delivery_sort_key = lambda i: (store.depth(i), i.id)
-        while not cursor.is_finished():
-            # lists of releases and deliveries must be computed before doing anything else
-            # because the cursor automatically advances to the next instant when all events
-            # have been processed.
-            releases = sorted(cursor.pending_releases, key=release_sort_key)
-            deliveries = sorted(cursor.pending_deliveries, key=delivery_sort_key)
-            # Process deliveries
-            for item in deliveries:
-                self.deliver_item(item)
-                # Stop the simulation if we've hit the cut value
-                if store.relocations + store.inversions >= cut:
-                    store.relocations = INF
-                    return
-            # Process releases
-            for item in releases:
-                options = self.placement_choices()
-                stack = FO(item, options, rng) if len(options) > 1 else options[0]
-                self.move_item(item, stack.id)
-
-    def placement_choices(self, avoid=None):
-        choices = []
-        for group in self.store.stack_groups():
-            if group[0] is not avoid:
-                choices.append(group[0])
-            elif len(group) > 1:
-                choices.append(group[1])
-        return choices
+                utils.flush_stack(store, stack, time)

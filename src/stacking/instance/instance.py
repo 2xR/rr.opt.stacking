@@ -36,8 +36,8 @@ class Instance(object):
                 line = next_content_line(istream)
                 item_id, release, due = [int(part) for part in line.split()]
                 items.append(Item(item_id, release, due))
-        warehouse = Store(nstacks=params["width"], max_height=params["height"])
-        return cls(items, warehouse, name=params["name"])
+        store = Store(nstacks=params["width"], max_height=params["height"])
+        return cls(items, store, name=params["name"])
 
 
 def next_content_line(stream):
