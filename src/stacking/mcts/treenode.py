@@ -33,7 +33,7 @@ class TreeNode(mcts.TreeNode):
     def copy(self):
         clone = mcts.TreeNode.copy(self)
         clone.store = self.store.copy(clear_move_callbacks=True)
-        clone.store.register_move_callback(self.on_move)
+        clone.store.register_move_callback(clone.on_move)
         clone.cursor = self.cursor.copy()
         clone.solution = self.solution.copy()
         clone.unreleased_items = self.unreleased_items

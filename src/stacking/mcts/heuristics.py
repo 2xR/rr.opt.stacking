@@ -42,9 +42,9 @@ def flexibility_score(item, stack):
     if math.isnan(dflex):  # item.due == stack.due == INF
         return 0.5
     elif dflex > 0.0:  # inversion -> score in [0.0, 0.5]
-        return 0.5 * (1.0 - 1.0 / (1.0 + dflex))
+        return 0.5 / (1.0 + dflex)
     else:  # non-inversion -> score in ]0.5, 1.0]
-        return 0.5 + (0.5 / (1.0 - dflex))
+        return 0.5 / (1.0 - dflex) + 0.5
 
 
 def max_elems(iterable, key=None):
@@ -71,6 +71,7 @@ def biased_choice(biases, rng):
     list 'biases' should contain the bias (or weight) of each index in the random draw. Biases
     should be non-negative real numbers of any magnitude. The probability of each index is the
     quotient between its bias and the sum of all biases."""
+    biases = list(biases)
     assert all(bias >= 0.0 for bias in biases)
     X = rng.uniform(0.0, sum(biases))
     Y = 0.0

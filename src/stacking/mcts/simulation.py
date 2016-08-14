@@ -56,5 +56,3 @@ def run(store, cursor, solution=None, heuristic=heuristics.rand, rng=random):
         for item in releases:
             place_item(item, RELEASE)
     return solution
-
-# IDEA: how about interleaving releases and deliveries?!?
