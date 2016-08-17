@@ -24,7 +24,7 @@ class Instance(object):
 
     @classmethod
     def load(cls, filepath):
-        with open(filepath, "rt") as istream:
+        with open(str(filepath), "rt") as istream:
             params = {"height": INF, "name": "<no name>"}
             line = next_content_line(istream)
             while line != "--- end of header ---":
