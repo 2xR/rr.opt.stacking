@@ -5,9 +5,9 @@ from __future__ import unicode_literals
 
 import random
 
-from stacking import utils
-from stacking.instance import RELEASE, DELIVERY
-from stacking.solution import Solution
+from rr.opt.stacking import utils
+from rr.opt.stacking.instance import RELEASE, DELIVERY
+from rr.opt.stacking.solution import Solution
 
 from . import heuristics
 

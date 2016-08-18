@@ -5,9 +5,9 @@ from __future__ import unicode_literals
 
 from rr.opt.mcts import basic as mcts
 
-from stacking import utils
-from stacking.instance import RELEASE, DELIVERY
-from stacking.solution import Solution
+from rr.opt.stacking import utils
+from rr.opt.stacking.instance import RELEASE, DELIVERY
+from rr.opt.stacking.solution import Solution
 
 from . import simulation
 from . import heuristics

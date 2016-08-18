@@ -4,7 +4,7 @@ from __future__ import print_function
 from __future__ import unicode_literals
 from future.builtins import range
 
-from stacking.instance.stack import DELIVERY
+from rr.opt.stacking.instance.stack import DELIVERY
 
 
 def flush_stack(store, stack, time):

@@ -4,7 +4,7 @@ from __future__ import print_function
 from __future__ import unicode_literals
 from future.builtins import object
 
-from stacking.instance.stack import RELEASE, DELIVERY
+from rr.opt.stacking.instance.stack import RELEASE, DELIVERY
 
 
 class Solution(object):

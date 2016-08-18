@@ -4,7 +4,8 @@ from __future__ import print_function
 from __future__ import unicode_literals
 from future.builtins import object, map, range
 
-from stacking import utils
+from rr.opt.stacking import utils
+
 from .stack import Stack, RELEASE, DELIVERY
 
 
