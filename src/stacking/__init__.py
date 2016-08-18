@@ -17,6 +17,9 @@ from .mcts import TreeNode
 from rr.opt.mcts import basic as mcts
 
 
+mcts.config_logging()
+
+
 def solve(instance, **kwargs):
     if not isinstance(instance, Instance):
         instance = Instance.load(instance)
@@ -24,7 +27,12 @@ def solve(instance, **kwargs):
     return mcts.run(root, **kwargs)
 
 
-results = {
-    instance: solve(instance, time_limit=10)
-    for instance in Path("../instances/").glob(("*"))
-}
+def main(time_limit=60):
+    results = {}
+    instances_dir = Path(__file__).parent.joinpath("../../instances").resolve()
+    print(instances_dir)
+    for instance in instances_dir.glob("*.txt"):
+        print("_" * 100)
+        print("Solving {}...".format(instance))
+        results[instance.name] = solve(instance, time_limit=time_limit)
+    return results

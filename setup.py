@@ -6,11 +6,11 @@ with open("README.rst", "rt") as readme_file:
     readme = readme_file.read()
 
 setup(
-    name="rr.opt.mcts.basic",
-    version=pkgutil.get_data("rr.opt.mcts.basic", "VERSION").decode("utf-8").strip(),
-    description="Simple implementation of Monte Carlo tree search.",
+    name="rr.opt.stacking",
+    version=pkgutil.get_data("rr.opt.stacking", "VERSION").decode("utf-8").strip(),
+    description="Stacking Problem solvers.",
     long_description=readme,
-    url="https://github.com/2xR/rr.opt.mcts.basic",
+    url="https://github.com/2xR/rr.opt.stacking",
     author="Rui Jorge Rei",
     author_email="rui.jorge.rei@googlemail.com",
     license="MIT",
