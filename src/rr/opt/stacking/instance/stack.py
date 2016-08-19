@@ -90,12 +90,14 @@ class Stack(object):
         """
         return (
             len(self.items) == len(stack.items) and
+            self.max_height == stack.max_height and
             all(i.due == j.due for i, j in zip(self.items, stack.items))
         )
 
 
 class PseudoStack(Stack):
-    """This Stack subclass is used only to represent the special stacks 'Release' and 'Delivery'."""
+    """This Stack subclass is used only to represent the special stacks 'Release' and 'Delivery'.
+    """
     def __init__(self, id, name):
         Stack.__init__(self, id)
         self.name = name

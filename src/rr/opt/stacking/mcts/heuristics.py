@@ -21,7 +21,8 @@ def min_inversions(item, stacks, rng):
 
 def max_flexibility(item, stacks, rng):
     """Selects randomly from all stacks where `item` causes minimum loss of flexibility."""
-    return rng.choice(max_elems(stacks, key=lambda s: flexibility_score(item, s)))
+    candidates = max_elems(stacks, key=lambda s: flexibility_score(item, s))
+    return rng.choice(candidates) if len(candidates) > 1 else candidates[0]
 
 
 def max_flexibility_bias(item, stacks, rng):

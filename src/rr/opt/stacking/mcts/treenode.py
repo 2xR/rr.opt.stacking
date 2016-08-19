@@ -63,13 +63,12 @@ class TreeNode(mcts.TreeNode):
         nonequiv_sources = utils.nonequivalent_stacks(all_sources)
         for source in nonequiv_sources:
             item = source.top
-            target_ids = [target.id for target in utils.target_stacks(source, stack_groups)]
-            branches.extend((item, target_id) for target_id in target_ids)
+            branches.extend((item, tgt.id) for tgt in utils.target_stacks(source, stack_groups))
 
         # Item releases are much easier to generate: one branch per (item, stack_group) pair.
         target_ids = [target.id for target in utils.target_stacks(RELEASE, stack_groups)]
         for item in cursor.pending_releases:
-            branches.extend((item, target_id) for target_id in target_ids)
+            branches.extend((item, tgt_id) for tgt_id in target_ids)
 
         return branches
 
