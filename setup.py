@@ -1,6 +1,12 @@
 from setuptools import setup, find_packages
 import pkgutil
 
+import sys
+import os
+
+here = os.path.dirname(os.path.abspath(__file__))
+src = os.path.join(here, "src")
+sys.path.insert(0, src)
 
 with open("README.rst", "rt") as readme_file:
     readme = readme_file.read()
