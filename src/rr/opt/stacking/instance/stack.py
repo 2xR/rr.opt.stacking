@@ -9,9 +9,9 @@ INF = float("inf")
 
 
 class Stack(object):
-    def __init__(self, id, max_height=INF):
+    def __init__(self, id, max_size=INF):
         self.id = id  # stack identifier (index in store)
-        self.max_height = max_height  # maximum number of items allowed
+        self.max_size = max_size  # maximum number of items allowed
         self.items = []  # items in the stack (bottom-up)
         self.earliest = [INF]  # earliest due date stack
         self.inversions = 0  # number of due date inversions
@@ -25,7 +25,7 @@ class Stack(object):
         cls = type(self)
         clone = cls.__new__(cls)
         clone.id = self.id
-        clone.max_height = self.max_height
+        clone.max_size = self.max_size
         clone.items = list(self.items)
         clone.earliest = list(self.earliest)
         clone.inversions = self.inversions
@@ -37,7 +37,7 @@ class Stack(object):
 
     @property
     def full(self):
-        return len(self.items) >= self.max_height
+        return len(self.items) >= self.max_size
 
     @property
     def top(self):
@@ -90,7 +90,7 @@ class Stack(object):
         """
         return (
             len(self.items) == len(stack.items) and
-            self.max_height == stack.max_height and
+            self.max_size == stack.max_size and
             all(i.due == j.due for i, j in zip(self.items, stack.items))
         )
 

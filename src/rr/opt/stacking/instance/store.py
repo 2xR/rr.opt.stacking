@@ -17,10 +17,10 @@ class Store(object):
     pseudo-stacks. This class provides a method to enumerate non-equivalent stacks in the store
     and build a list of stack groups, where a stack group is a set of equivalent stacks.
     """
-    def __init__(self, nstacks, max_height=INF):
+    def __init__(self, stack_count, stack_max_size=INF):
         self.stacks = [RELEASE]
-        for i in range(1, nstacks+1):
-            self.stacks.append(Stack(i, max_height=max_height))
+        for i in range(1, stack_count+1):
+            self.stacks.append(Stack(i, max_size=stack_max_size))
         self.stacks.append(DELIVERY)
         self.loc_map = {}  # item location map :: {item: stack_index}
         self.move_callbacks = []  # :: [callable(store, item, source, target)]
@@ -32,7 +32,7 @@ class Store(object):
             id(self),
         )
 
-    def copy(self, clear_move_callbacks=True):
+    def copy(self, clear_move_callbacks=False):
         cls = type(self)
         clone = cls.__new__(cls)
         clone.stacks = [stack.copy() for stack in self.stacks]
