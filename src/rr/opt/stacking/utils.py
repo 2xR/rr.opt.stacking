@@ -2,19 +2,36 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
-from future.builtins import range
 
 from rr.opt.stacking.instance.stack import DELIVERY
 
 
 def flush_stack(store, stack, time):
     """Deliver all items at the top of `stack` whose due date is equal to `time`."""
-    for _ in range(len(stack.items)):
+    while len(stack.items) > 0:
         item = stack.top
         if item.due != time:
             break
         source = store.move(item, DELIVERY)
         assert source is stack
+
+
+def flush_store(store, cursor):
+    """Deliver all items located at the top of any stack in 'store'.
+
+    Note:
+        Delivering items may cause the cursor to advance to the next instant, and then all
+        trivial deliveries in that instant are made. If that, in turn, causes the cursor to
+        advance again, the process continues until either the end of the calendar is reached or
+        the cursor stops advancing.
+    """
+    index = cursor.index - 1  # (-1 to "force" first iteration of the loop)
+    while len(cursor.pending_deliveries) > 0 and cursor.index > index:
+        index = cursor.index
+        time = cursor.time
+        for stack in store.inner_stacks():
+            if len(stack.items) > 0 and stack.top.due == time:
+                flush_stack(store, stack, time)
 
 
 def nonequivalent_stacks(stacks):
@@ -61,6 +78,8 @@ def target_stacks(source, stack_groups):
     targets = []
     for group in stack_groups:
         target = group[0]
+        if target.full:
+            continue
         if target is source:
             # If 'source' is the same stack as 'target', then we pick the next stack in the same
             # group if possible. Otherwise we skip this singleton group.

@@ -32,5 +32,8 @@ setup(
     packages=find_packages("src"),
     package_dir={"": "src"},
     package_data={"": ["LICENSE", "VERSION"]},
-    install_requires=["future~=0.15.2"],
+    install_requires=[
+        "future~=0.15.2",
+        # "rr.opt.mcts.basic",  # uncomment when pushed to PyPI
+    ],
 )
