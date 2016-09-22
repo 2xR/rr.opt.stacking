@@ -2,7 +2,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
-from future.builtins import object, map, range
+from future.builtins import object, dict, map, range
 
 from rr.opt.stacking import utils
 
@@ -22,7 +22,7 @@ class Store(object):
         for i in range(1, stack_count+1):
             self.stacks.append(Stack(i, max_size=stack_max_size))
         self.stacks.append(DELIVERY)
-        self.loc_map = {}  # item location map :: {item: stack_index}
+        self.loc_map = dict()  # item location map :: {item: stack_index}
         self.move_callbacks = []  # :: [callable(store, item, source, target)]
 
     def __repr__(self):
@@ -46,6 +46,13 @@ class Store(object):
     @property
     def inversions(self):
         return sum(stack.inversions for stack in self.stacks)
+
+    @property
+    def items(self):
+        nstacks = len(self.stacks) - 2
+        for item, stack_index in self.loc_map.items():
+            if 0 < stack_index <= nstacks:
+                yield item
 
     def inner_stacks(self):
         stacks = self.stacks
@@ -91,8 +98,9 @@ class Store(object):
         if target is not DELIVERY:
             target.push(item)
         self.loc_map[item] = target.id
-        for callback in self.move_callbacks:
-            callback(self, item, source, target)
+        if len(self.move_callbacks) > 0:
+            for callback in self.move_callbacks:
+                callback(self, item, source, target)
         return source
 
     def register_move_callback(self, fnc):

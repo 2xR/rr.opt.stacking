@@ -36,15 +36,15 @@ def max_flexibility_bias(item, stacks, rng):
 def flexibility_score(item, stack):
     """Assigns a score in [0, 1] to the movement `item -> stack`, related to the loss of "stack
     flexibility". A stack is considered more flexible if it can receive a larger set of items
-    with creating new inversions.
+    without creating new inversions.
     """
     # TODO: consider balancing stack height in the score, or maybe in a different score function.
     dflex = item.due - stack.due  # stack flexibility delta
     if math.isnan(dflex):  # item.due == stack.due == INF
-        return 0.5
-    elif dflex > 0.0:  # inversion -> score in [0.0, 0.5]
+        dflex = 0.0  # absolutely no loss of flexibility in this case
+    if dflex > 0.0:  # inversion -> score in [0.0, 0.5)
         return 0.5 / (1.0 + dflex)
-    else:  # non-inversion -> score in ]0.5, 1.0]
+    else:  # non-inversion -> score in [0.5, 1.0]
         return 0.5 / (1.0 - dflex) + 0.5
 
 

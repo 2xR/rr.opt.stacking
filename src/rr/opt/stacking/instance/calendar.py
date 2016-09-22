@@ -8,6 +8,8 @@ import bisect
 import collections
 import math
 
+from rr.opt.stacking.instance import RELEASE, DELIVERY
+
 
 INF = float("inf")
 Instant = collections.namedtuple("Instant", ["time", "releases", "deliveries"])
@@ -104,3 +106,12 @@ class Cursor(object):
         self.pending_releases.remove(item)
         if len(self.pending_deliveries) == 0 and len(self.pending_releases) == 0:
             self.advance()
+
+    def update_from(self, store):
+        store.register_move_callback(self.update_from_move)
+
+    def update_from_move(self, _, item, source, target):
+        if source is RELEASE:
+            self.mark_released(item)
+        if target is DELIVERY:
+            self.mark_delivered(item)

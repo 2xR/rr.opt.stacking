@@ -6,7 +6,7 @@ from __future__ import unicode_literals
 import rr.opt.mcts.basic as mcts
 
 from rr.opt.stacking import utils
-from rr.opt.stacking.instance import RELEASE, DELIVERY
+from rr.opt.stacking.instance import RELEASE
 from rr.opt.stacking.solution import Solution
 
 from . import simulation
@@ -48,11 +48,9 @@ class TreeNode(mcts.TreeNode):
         """
         node = store.node
         node.solution.record_move(store, item, source, target)
+        node.cursor.update_from_move(store, item, source, target)
         if source is RELEASE:
             node.unreleased_items -= 1
-            node.cursor.mark_released(item)
-        if target is DELIVERY:
-            node.cursor.mark_delivered(item)
 
     def branches(self):
         # Detect whether this node is a leaf. A node is a leaf when all releases have been
